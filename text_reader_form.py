@@ -122,13 +122,17 @@ class TextReaderForm(QtWidgets.QWidget):
         main_layout.addWidget(self.scroll)
 
     def set_document(self, doc):
-        """Устанавливает данные документа в форму"""
         self.document = doc
         if self.title:
             self.title.setText(doc.name)
         if self.text:
-            self.text.setPlainText(doc.get_text() if hasattr(doc, 'get_text') else getattr(doc, 'text', ''))
-            self.text.setReadOnly(True)
+            try:
+                text_content = doc.get_text()
+                self.text.setPlainText(text_content)
+                self.text.setReadOnly(True)
+            except Exception as e:
+                print(f"Ошибка при загрузке текста документа: {e}")
+                self.text.setPlainText("")
         
         self.is_edit_mode = False
         
@@ -169,7 +173,7 @@ class TextReaderForm(QtWidgets.QWidget):
             return
         try:
             # Импорт внутри метода для избежания циклических зависимостей
-            from .document_manager import Document
+            from backend.core.document_manager import Document
             
             # Проверьте, какой у вас метод в Document: update_text или update
             # Если doc.id это строка/int, используем его
@@ -182,5 +186,11 @@ class TextReaderForm(QtWidgets.QWidget):
             QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить: {str(e)}")
 
     def get_btn_style(self, variant="default"):
-        base = "QPushButton { border: none; border-radius: 8px; font-size: 14px; font-weight: 600; padding: 0 24px; } "
-        return base + "QPushButton { background: #F1F5F9; color: #475569; } QPushButton:hover { background: #E2E8F0; color: #1E293B; }"
+        base = "QPushButton { border: none; border-radius: 8px; font-size: 14px; font-weight: 600; padding: 0 24px; }"
+        
+        if variant == "primary":
+            return base + " QPushButton { background: #6C5CE7; color: white; } QPushButton:hover { background: #5b4cc4; }"
+        elif variant == "danger":
+            return base + " QPushButton { background: #EF4444; color: white; } QPushButton:hover { background: #DC2626; }"
+        else:
+            return base + " QPushButton { background: #F1F5F9; color: #475569; } QPushButton:hover { background: #E2E8F0; color: #1E293B; }"

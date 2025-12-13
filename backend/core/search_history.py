@@ -3,8 +3,8 @@ import datetime
 import os
 from typing import List
 
-
-HISTORY_DB = r'D:\Python projects\COURSE_WORK\backend\core\index\search_history.db'
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+HISTORY_DB = os.path.join(BASE_DIR, 'backend', 'core', 'index', 'search_history.db')
 
 
 class SearchHistory:
@@ -34,28 +34,38 @@ class SearchHistory:
         conn.close()
 
     def add(self, query: str):
-        if not query.strip():
-            return
-        conn = self._connect()
-        cur = conn.cursor()
-        cur.execute('SELECT id FROM history WHERE query = ?', (query,))
-        if not cur.fetchone():
-            cur.execute('INSERT INTO history (query, timestamp) VALUES (?, ?)',
-                        (query, datetime.datetime.now().isoformat()))
-            conn.commit()
-        conn.close()
+        try:
+            if not query or not query.strip():
+                return
+            conn = self._connect()
+            cur = conn.cursor()
+            cur.execute('SELECT id FROM history WHERE query = ?', (query,))
+            if not cur.fetchone():
+                cur.execute('INSERT INTO history (query, timestamp) VALUES (?, ?)',
+                            (query, datetime.datetime.now().isoformat()))
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Ошибка при добавлении запроса в историю: {e}")
 
     def get_all(self) -> List[str]:
-        conn = self._connect()
-        cur = conn.cursor()
-        cur.execute('SELECT query FROM history ORDER BY id DESC')
-        data = [row[0] for row in cur.fetchall()]
-        conn.close()
-        return data
+        try:
+            conn = self._connect()
+            cur = conn.cursor()
+            cur.execute('SELECT query FROM history ORDER BY id DESC')
+            data = [row[0] for row in cur.fetchall()]
+            conn.close()
+            return data
+        except Exception as e:
+            print(f"Ошибка при получении истории: {e}")
+            return []
 
     def clear(self):
-        conn = self._connect()
-        cur = conn.cursor()
-        cur.execute('DELETE FROM history')
-        conn.commit()
-        conn.close()
+        try:
+            conn = self._connect()
+            cur = conn.cursor()
+            cur.execute('DELETE FROM history')
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Ошибка при очистке истории: {e}")

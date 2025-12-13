@@ -1,5 +1,4 @@
-from typing import List
-from backend.core.document_manager import Document
+from .document_manager import Document
 
 
 class SearchResult:

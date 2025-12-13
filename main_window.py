@@ -1,47 +1,12 @@
 import sys
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QMessageBox, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QStackedWidget
+from PyQt5.QtWidgets import QApplication, QMessageBox, QListWidgetItem
 
-# Импорты заглушены try-except на случай, если структура папок другая, 
-# чтобы окно все равно открылось (для теста).
-try:
-    from backend.core.document_manager import Document
-    from backend.core.search import SearchEngine
-    from backend.core.text_reader_form import TextReaderForm
-    from backend.core.recommender import Recommender
-except ImportError:
-    # Заглушки для запуска интерфейса без бэкенда (если файлы недоступны)
-    print("Backend modules not found. Running in UI-only mode.")
-    class Document:
-        @staticmethod
-        def get_all(): return []
-        @staticmethod
-        def create_new(n, t): pass
-        @staticmethod
-        def delete_document(i): pass
-        name = "Test Doc"
-    class SearchEngine:
-        def __init__(self): self.history = self
-        def search(self, q, f): return []
-        def get_similar_documents(self, n): return []
-        def get_all(self): return []
-        def clear(self): pass
-    class TextReaderForm(QWidget):
-        def __init__(self):
-            super().__init__()
-            self.btn_edit = QPushButton("Edit")
-            self.btn_delete = QPushButton("Delete")
-            self.similar_list = QListWidget()
-            lay = QVBoxLayout(self)
-            lay.addWidget(QLabel("Text Reader Placeholder"))
-            lay.addWidget(self.btn_edit)
-        def set_document(self, d): pass
-        def toggle_edit(self): pass
-    class Recommender:
-        def __init__(self, h): pass
-        def set_engine(self, e): pass
-        def get_document_recommendations(self, top_n): return []
+from backend.core.document_manager import Document
+from backend.core.search import SearchEngine
+from text_reader_form import TextReaderForm
+from backend.core.recommender import Recommender
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -50,12 +15,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1100, 700)
         self.setMinimumSize(900, 600)
         
-        # Инициализация бэкенда
         self.engine = SearchEngine()
-        try:
-            self.documents = Document.get_all()
-        except:
-            self.documents = []
+        self.documents = Document.get_all()
             
         self.current_doc_id = None
         self.pages = {}
@@ -253,17 +214,9 @@ class MainWindow(QtWidgets.QMainWindow):
         return page
 
     def page_view(self):
-        # Используем ваш класс TextReaderForm
         self.reader_form = TextReaderForm()
-        # Применяем стиль, но осторожно, чтобы не сломать внутренности
-        try:
-            self.reader_form.btn_edit.clicked.connect(self.reader_form.toggle_edit)
-            self.reader_form.btn_delete.clicked.connect(self.delete_current_doc)
-            self.reader_form.similar_list.itemClicked.connect(self.open_similar_doc)
-        except AttributeError:
-            pass # Защита от ошибок, если в TextReaderForm нет кнопок
-        
-        # Стилизация внутренней формы
+        self.reader_form.btn_delete.clicked.connect(self.delete_current_doc)
+        self.reader_form.similar_list.itemClicked.connect(self.open_similar_doc)
         self.reader_form.setStyleSheet("background: transparent;")
         return self.reader_form
 
@@ -333,7 +286,8 @@ class MainWindow(QtWidgets.QMainWindow):
     # --- Логика ---
 
     def go_to(self, idx, add=True):
-        if add and idx != self.current_idx:
+        current_page = self.history[self.current_idx] if self.history else None
+        if add and idx != current_page:
             self.history = self.history[:self.current_idx + 1] + [idx]
             self.current_idx = len(self.history) - 1
         
@@ -342,26 +296,28 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Контекстные действия при открытии страниц
         if idx == self.pages.get("all_docs"):
+            try:
+                self.documents = Document.get_all()
+            except Exception:
+                self.documents = []
             self.filter_docs("")
         elif idx == self.pages.get("history"):
             self.history_list.clear()
             try:
                 for q in self.engine.history.get_all():
                     self.history_list.addItem(q)
-            except: pass
+            except Exception:
+                pass
         elif idx == self.pages.get("home"):
             self.update_recommendations()
 
     def go_back(self):
-        if hasattr(self, "doc_history") and self.doc_history:
-            prev_doc = self.doc_history.pop()
-            fake_item = QListWidgetItem()
-            fake_item.setData(Qt.UserRole, prev_doc)
-            self.open_doc(fake_item, add_to_history=False)
-        elif self.current_idx > 0:
+        if self.current_idx > 0:
             self.current_idx -= 1
             idx = self.history[self.current_idx]
             self.stack.setCurrentIndex(idx)
+            if hasattr(self, "doc_history"):
+                self.doc_history = []
         self.btn_back.setEnabled(self.current_idx > 0)
 
     def update_recommendations(self):
@@ -377,33 +333,48 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def do_search(self):
         query = self.search_input.text().strip()
-        filters = [f.strip() for f in self.filter_input.text().split(',')] if self.filter_input.text() else None
+        
         if not query:
             QMessageBox.warning(self, "Внимание", "Введите поисковой запрос.")
             return
+        
+        filter_text = self.filter_input.text().strip()
+        if filter_text:
+            import re
+            if re.search(r'[^а-яёa-z,\s]', filter_text, re.IGNORECASE):
+                QMessageBox.warning(self, "Ошибка", "Фильтр может содержать только буквы и запятые.")
+                return
+            filters = [f.strip() for f in filter_text.split(',') if f.strip()]
+        else:
+            filters = None
+        
         try:
             results = self.engine.search(query, filters)
             self.results_list.clear()
+            
             if not results:
-                QMessageBox.information(self, "Инфо", "Документы не найдены.")
+                QMessageBox.information(self, "Результаты", "Документы не найдены.")
+                return
+            
             for r in results:
                 item = QtWidgets.QListWidgetItem(r.document.name)
                 item.setData(Qt.UserRole, r.document.name)
                 self.results_list.addItem(item)
+            
             self.go_to(self.pages["results"])
         except Exception as e:
-             QMessageBox.critical(self, "Ошибка поиска", str(e))
+            QMessageBox.critical(self, "Ошибка", f"Ошибка при поиске: {str(e)}")
 
     def open_doc(self, item, add_to_history=True):
         doc_id = item.data(Qt.UserRole)
+        try:
+            self.documents = Document.get_all()
+        except Exception:
+            pass
         doc = next((d for d in self.documents if d.name == doc_id or getattr(d, 'id', None) == doc_id), None)
         if not doc:
             return
         
-        if add_to_history and hasattr(self, "current_doc_id") and self.current_doc_id:
-            if not hasattr(self, "doc_history"): self.doc_history = []
-            self.doc_history.append(self.current_doc_id)
-            
         self.current_doc_id = doc.name
         self.reader_form.set_document(doc)
         
@@ -413,42 +384,90 @@ class MainWindow(QtWidgets.QMainWindow):
                 it = QtWidgets.QListWidgetItem(res.document.name)
                 it.setData(Qt.UserRole, res.document.name)
                 self.reader_form.similar_list.addItem(it)
-        except: pass
+        except Exception as e:
+            print(f"Ошибка при загрузке похожих документов: {e}")
         
-        self.go_to(self.pages["view"], add=False) # Передаем add=False, чтобы история навигации не забивалась просмотрами, или True если нужно
+        self.go_to(self.pages["view"], add=True)
 
     def open_similar_doc(self, item):
         self.open_doc(item, add_to_history=True)
 
     def delete_current_doc(self):
-        if not self.current_doc_id: return
-        if QMessageBox.question(self, "Удаление", "Удалить?") == QMessageBox.Yes:
-            Document.delete_document(self.current_doc_id)
-            self.documents = Document.get_all()
-            self.go_to(self.pages["all_docs"])
+        if not self.current_doc_id:
+            return
+        
+        reply = QMessageBox.question(
+            self,
+            "Подтверждение",
+            f"Вы уверены, что хотите удалить документ '{self.current_doc_id}'?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            try:
+                Document.delete_document(self.current_doc_id)
+                self.documents = Document.get_all()
+                QMessageBox.information(self, "Успех", "Документ удален.")
+                self.go_to(self.pages["all_docs"])
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка", f"Не удалось удалить документ: {str(e)}")
 
     def save_new_doc(self):
-        name, text = self.add_title.text().strip(), self.add_content.toPlainText().strip()
-        if name and text:
+        name = self.add_title.text().strip()
+        text = self.add_content.toPlainText().strip()
+        
+        if not name:
+            QMessageBox.warning(self, "Ошибка", "Введите название документа.")
+            return
+        
+        if not text:
+            QMessageBox.warning(self, "Ошибка", "Введите текст документа.")
+            return
+        
+        import re
+        invalid_chars = r'[<>:"/\\|?*]'
+        if re.search(invalid_chars, name):
+            QMessageBox.warning(self, "Ошибка", "Название содержит недопустимые символы: < > : \" / \\ | ? *")
+            return
+        
+        try:
             Document.create_new(name, text)
             self.documents = Document.get_all()
             self.add_title.clear()
             self.add_content.clear()
-            QMessageBox.information(self, "Успех", "Сохранено")
+            QMessageBox.information(self, "Успех", "Документ успешно создан.")
             self.go_to(self.pages["home"])
-        else:
-            QMessageBox.warning(self, "Ошибка", "Заполните поля")
+        except FileExistsError:
+            QMessageBox.warning(self, "Ошибка", f"Документ с именем '{name}' уже существует.")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось создать документ: {str(e)}")
 
     def repeat_search(self, item):
         self.search_input.setText(item.text())
         self.do_search()
 
     def clear_history(self):
-        self.engine.history.clear()
-        self.history_list.clear()
+        reply = QMessageBox.question(
+            self,
+            "Подтверждение",
+            "Вы уверены, что хотите очистить всю историю запросов?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            try:
+                self.engine.history.clear()
+                self.history_list.clear()
+                QMessageBox.information(self, "Успех", "История очищена.")
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка", f"Не удалось очистить историю: {str(e)}")
 
     def filter_docs(self, text):
         self.all_docs_list.clear()
+        try:
+            self.documents = Document.get_all()
+        except Exception:
+            self.documents = self.documents if hasattr(self, "documents") else []
         for d in self.documents:
             if text.lower() in d.name.lower():
                 item = QtWidgets.QListWidgetItem(d.name)
@@ -484,7 +503,7 @@ if __name__ == "__main__":
         
         /* Текст внутри сообщений */
         QMessageBox QLabel {
-            color: #FFFFFF;
+            color: #334155;
             background-color: transparent;
             font-weight: 500;
         }
@@ -492,7 +511,7 @@ if __name__ == "__main__":
         /* Кнопки внутри сообщений (Yes, No, OK) */
         QMessageBox QPushButton {
             background-color: #F1F5F9;
-            color: #FFFFFF;
+            color: #334155;
             border: 1px solid #CBD5E1;
             border-radius: 6px;
             padding: 6px 15px;
