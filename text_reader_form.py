@@ -1,4 +1,4 @@
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMessageBox
 
@@ -7,53 +7,45 @@ class TextReaderForm(QtWidgets.QWidget):
         super().__init__()
         self.document = None
         self.is_edit_mode = False
-        
-        # Инициализация переменных UI заглушками во избежание AttributeError
         self.title = None
         self.text = None
         self.btn_edit = None
         self.btn_delete = None
         self.similar_list = None
-        
-        # Построение интерфейса
+        self.keywords_label = None
         self.init_ui()
 
     def init_ui(self):
-        # Основной скролл для всей формы
         self.scroll = QtWidgets.QScrollArea(self)
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
-        # Контейнер внутри скролла
         container = QtWidgets.QWidget()
         container.setStyleSheet("background: transparent;")
         self.scroll.setWidget(container)
 
-        # Layout контейнера
         layout = QtWidgets.QVBoxLayout(container)
         layout.setContentsMargins(40, 20, 40, 40)
         layout.setSpacing(20)
 
-        # Заголовок
         self.title = QtWidgets.QLabel("Загрузка...")
         self.title.setStyleSheet("font-size: 24px; color: #1E293B; font-weight: 700; margin-bottom: 10px;")
         self.title.setWordWrap(True)
         layout.addWidget(self.title)
 
-        # Текстовое поле
         self.text = QtWidgets.QTextEdit()
         self.text.setReadOnly(True)
-        self.text.setMinimumHeight(400) # Чуть меньше, чтобы влезало в экран
+        self.text.setMinimumHeight(400)
         self.text.setStyleSheet(
             """
             QTextEdit {
-                background: #FFFFFF; 
-                border: 1px solid #E2E8F0; 
-                border-radius: 10px; 
-                padding: 20px; 
-                font-size: 15px; 
-                color: #334155; 
+                background: #FFFFFF;
+                border: 1px solid #E2E8F0;
+                border-radius: 10px;
+                padding: 20px;
+                font-size: 15px;
+                color: #334155;
             }
             QTextEdit:focus {
                 border: 1px solid #6C5CE7;
@@ -62,7 +54,6 @@ class TextReaderForm(QtWidgets.QWidget):
         )
         layout.addWidget(self.text)
 
-        # Кнопки управления
         row = QtWidgets.QHBoxLayout()
         row.setSpacing(15)
 
@@ -77,13 +68,33 @@ class TextReaderForm(QtWidgets.QWidget):
         self.btn_delete.setCursor(Qt.PointingHandCursor)
         self.btn_delete.setStyleSheet(self.get_btn_style("danger"))
         row.addWidget(self.btn_delete)
-        
+
         row.addStretch()
         layout.addLayout(row)
 
         layout.addSpacing(10)
 
-        # Блок похожих документов
+        kw_title = QtWidgets.QLabel("Ключевые слова:")
+        kw_title.setStyleSheet("font-size: 15px; color: #475569; font-weight: 600;")
+        layout.addWidget(kw_title)
+
+        self.keywords_label = QtWidgets.QLabel("—")
+        self.keywords_label.setWordWrap(True)
+        self.keywords_label.setStyleSheet(
+            """
+            QLabel {
+                background: #FFFFFF;
+                border: 1px solid #E2E8F0;
+                border-radius: 10px;
+                padding: 12px 16px;
+                color: #334155;
+            }
+            """
+        )
+        layout.addWidget(self.keywords_label)
+
+        layout.addSpacing(10)
+
         lbl = QtWidgets.QLabel("Похожие документы:")
         lbl.setStyleSheet("font-size: 15px; color: #475569; font-weight: 600;")
         layout.addWidget(lbl)
@@ -95,18 +106,18 @@ class TextReaderForm(QtWidgets.QWidget):
         self.similar_list.setStyleSheet(
             """
             QListWidget {
-                background: #FFFFFF; 
-                border: 1px solid #E2E8F0; 
-                border-radius: 10px; 
+                background: #FFFFFF;
+                border: 1px solid #E2E8F0;
+                border-radius: 10px;
                 outline: none;
             }
-            QListWidget::item { 
-                padding: 12px 16px; 
-                border-bottom: 1px solid #F1F5F9; 
+            QListWidget::item {
+                padding: 12px 16px;
+                border-bottom: 1px solid #F1F5F9;
                 color: #334155;
             }
-            QListWidget::item:hover { 
-                background: #F8FAFC; 
+            QListWidget::item:hover {
+                background: #F8FAFC;
             }
             QListWidget::item:selected {
                 background: #EEF2FF;
@@ -116,7 +127,6 @@ class TextReaderForm(QtWidgets.QWidget):
         )
         layout.addWidget(self.similar_list)
 
-        # Установка layout для самого виджета
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.scroll)
@@ -130,12 +140,11 @@ class TextReaderForm(QtWidgets.QWidget):
                 text_content = doc.get_text()
                 self.text.setPlainText(text_content)
                 self.text.setReadOnly(True)
-            except Exception as e:
-                print(f"Ошибка при загрузке текста документа: {e}")
+                self.update_keywords(text_content)
+            except Exception:
                 self.text.setPlainText("")
-        
+                self.update_keywords("")
         self.is_edit_mode = False
-        
         if self.btn_edit:
             self.btn_edit.setText("Редактировать")
             self.btn_edit.setStyleSheet(self.get_btn_style("default"))
@@ -146,17 +155,14 @@ class TextReaderForm(QtWidgets.QWidget):
             self.btn_edit.clicked.connect(self.toggle_edit)
 
     def toggle_edit(self):
-        """Переключает режим редактирования"""
         self.is_edit_mode = not self.is_edit_mode
         self.text.setReadOnly(not self.is_edit_mode)
-        
         if self.is_edit_mode:
             self.btn_edit.setText("Сохранить")
             self.btn_edit.setStyleSheet(self.get_btn_style("primary"))
         else:
             self.btn_edit.setText("Редактировать")
             self.btn_edit.setStyleSheet(self.get_btn_style("default"))
-            
         try:
             self.btn_edit.clicked.disconnect()
         except TypeError:
@@ -164,7 +170,6 @@ class TextReaderForm(QtWidgets.QWidget):
         self.btn_edit.clicked.connect(self.save if self.is_edit_mode else self.toggle_edit)
 
     def save(self):
-        """Сохраняет изменения"""
         if not self.document:
             return
         txt = self.text.toPlainText().strip()
@@ -172,22 +177,27 @@ class TextReaderForm(QtWidgets.QWidget):
             QMessageBox.warning(self, "Ошибка", "Текст не может быть пустым.")
             return
         try:
-            # Импорт внутри метода для избежания циклических зависимостей
             from backend.core.document_manager import Document
-            
-            # Проверьте, какой у вас метод в Document: update_text или update
-            # Если doc.id это строка/int, используем его
             doc_id = getattr(self.document, 'id', self.document.name)
             Document.update_text(doc_id, txt)
-            
             QMessageBox.information(self, "Готово", "Документ сохранён.")
+            self.update_keywords(txt)
             self.toggle_edit()
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить: {str(e)}")
 
+    def update_keywords(self, text: str):
+        if not self.keywords_label:
+            return
+        try:
+            from backend.core.indexer import extract_keywords_surface
+            kws = extract_keywords_surface(text or "", top_n=10)
+            self.keywords_label.setText(", ".join(kws) if kws else "—")
+        except Exception:
+            self.keywords_label.setText("—")
+
     def get_btn_style(self, variant="default"):
         base = "QPushButton { border: none; border-radius: 8px; font-size: 14px; font-weight: 600; padding: 0 24px; }"
-        
         if variant == "primary":
             return base + " QPushButton { background: #6C5CE7; color: white; } QPushButton:hover { background: #5b4cc4; }"
         elif variant == "danger":

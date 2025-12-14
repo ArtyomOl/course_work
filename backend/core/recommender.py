@@ -1,7 +1,6 @@
-# backend/core/recommender.py
 from typing import List
+from collections import defaultdict
 from .search import SearchEngine
-from collections import Counter
 
 class Recommender:
     def __init__(self, history):
@@ -12,12 +11,21 @@ class Recommender:
         self.engine = engine
 
     def get_document_recommendations(self, top_n: int = 5) -> List[str]:
-        if not self.engine or not self.history.get_all():
+        if not self.engine:
             return []
-        doc_counter = Counter()
-        for query_text in self.history.get_all():
-            results = self.engine.search(query_text)
-            for r in results:
-                doc_counter[r.document.name] += 1
-        most_common = doc_counter.most_common(top_n)
-        return [name for name, _ in most_common]
+        queries = self.history.get_all()
+        if not queries:
+            return []
+        scores = defaultdict(float)
+        decay = 0.9
+        weight = 1.0
+        for q in queries:
+            try:
+                results = self.engine.search(q, add_to_history=False)[:10]
+                for rank, r in enumerate(results, 1):
+                    scores[r.document.name] += weight * (1.0 / rank)
+                weight *= decay
+            except Exception:
+                continue
+        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top_n]
+        return [name for name, _ in ranked]

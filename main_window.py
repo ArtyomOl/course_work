@@ -26,7 +26,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.recommender = Recommender(self.engine.history)
         self.recommender.set_engine(self.engine)
 
-        # Главный виджет и стиль
         central = QtWidgets.QWidget()
         central.setStyleSheet("""
             QWidget { background-color: #F8F9FC; color: #334155; font-family: 'Segoe UI', sans-serif; font-size: 14px; }
@@ -35,23 +34,18 @@ class MainWindow(QtWidgets.QMainWindow):
         """)
         self.setCentralWidget(central)
         
-        # Главный Layout
         main_layout = QtWidgets.QVBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Навигация
         self.nav_bar = self.create_nav_bar()
         main_layout.addWidget(self.nav_bar)
 
-        # Стек страниц
         self.stack = QtWidgets.QStackedWidget()
         main_layout.addWidget(self.stack)
 
-        # Создание страниц
         self.create_pages()
         
-        # Переход на главную
         self.go_to(self.pages["home"])
 
     def create_nav_bar(self):
@@ -106,7 +100,6 @@ class MainWindow(QtWidgets.QMainWindow):
         return btn
 
     def create_pages(self):
-        # Порядок добавления важен для индексов
         self.add_page("home", self.page_home)
         self.add_page("search", self.page_search)
         self.add_page("results", self.page_results)
@@ -126,7 +119,6 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.setContentsMargins(60, 40, 60, 40)
         layout.setAlignment(Qt.AlignTop)
         
-        # Заголовки
         title = QtWidgets.QLabel("Поисковая система")
         title.setStyleSheet("font-size: 32px; color: #1E293B; font-weight: 700; margin-top: 20px;")
         title.setAlignment(Qt.AlignCenter)
@@ -137,11 +129,10 @@ class MainWindow(QtWidgets.QMainWindow):
         subtitle.setAlignment(Qt.AlignCenter)
         layout.addWidget(subtitle)
 
-        # Меню кнопок (упрощенная верстка для надежности)
         menu_container = QtWidgets.QWidget()
         menu_layout = QtWidgets.QVBoxLayout(menu_container)
         menu_layout.setSpacing(15)
-        menu_layout.setContentsMargins(100, 0, 100, 0) # Отступы по бокам для центровки
+        menu_layout.setContentsMargins(100, 0, 100, 0) 
 
         actions = [
             ("Найти документ", lambda: self.go_to(self.pages["search"])),
@@ -158,7 +149,6 @@ class MainWindow(QtWidgets.QMainWindow):
         
         layout.addSpacing(30)
         
-        # Рекомендации
         rec_label = QtWidgets.QLabel("Рекомендуемое:")
         rec_label.setStyleSheet("color: #64748B; font-weight: 600; font-size: 14px;")
         layout.addWidget(rec_label)
@@ -283,7 +273,6 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(btn_clear)
         return page
 
-    # --- Логика ---
 
     def go_to(self, idx, add=True):
         current_page = self.history[self.current_idx] if self.history else None
@@ -294,7 +283,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stack.setCurrentIndex(idx)
         self.btn_back.setEnabled(self.current_idx > 0)
         
-        # Контекстные действия при открытии страниц
         if idx == self.pages.get("all_docs"):
             try:
                 self.documents = Document.get_all()
@@ -329,7 +317,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 item.setData(Qt.UserRole, name)
                 self.recommend_list.addItem(item)
         except Exception:
-            pass # Игнорируем ошибки бэкенда при отрисовке
+            pass
 
     def do_search(self):
         query = self.search_input.text().strip()
@@ -356,7 +344,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 QMessageBox.information(self, "Результаты", "Документы не найдены.")
                 return
             
+            print(f"[DEBUG] Результаты поиска: запрос='{query}', найдено={len(results)}")
             for r in results:
+                try:
+                    print(f"[DEBUG] точность={r.score:.4f} документ='{r.document.name}'")
+                except Exception:
+                    pass
                 item = QtWidgets.QListWidgetItem(r.document.name)
                 item.setData(Qt.UserRole, r.document.name)
                 self.results_list.addItem(item)
@@ -474,7 +467,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 item.setData(Qt.UserRole, d.name)
                 self.all_docs_list.addItem(item)
 
-    # --- Стили ---
     def input_style(self):
         return "QLineEdit { background: white; border: 2px solid #E2E8F0; border-radius: 8px; padding: 0 12px; font-size: 14px; color: #334155; } QLineEdit:focus { border-color: #6C5CE7; }"
 
@@ -487,7 +479,6 @@ class MainWindow(QtWidgets.QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    # Глобальный стиль для всего приложения, включая всплывающие окна
     app.setStyleSheet("""
         /* Базовые настройки шрифта и фона для всех окон */
         QWidget {
