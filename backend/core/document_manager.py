@@ -251,8 +251,17 @@ class Document:
     def is_fit_for_filters(self, filters: list[str]):
         if not filters:
             return True
+        try:
+            doc_tokens = set((self.get_preprocess_text() or "").split())
+        except Exception:
+            doc_tokens = set()
+        kw_stems = {k.stemmed for k in self.get_keywords() if getattr(k, "stemmed", None)}
+        doc_vocab = doc_tokens | kw_stems
         for w in filters:
-            if TextPreprocessor.preprocess(w) not in [k.stemmed for k in self._keywords]:
+            stem = TextPreprocessor.preprocess(w)
+            if not stem:
+                continue
+            if stem not in doc_vocab:
                 return False
         return True
 

@@ -172,7 +172,7 @@ class SearchEngine:
                 return []
             scores = self._calculate_scores(query)
             results = self._rank(scores, query)
-            threshold = 0.08
+            threshold = 0.1
             results = [r for r in results if r.score >= threshold]
             if filters:
                 results = [r for r in results if r.document.is_fit_for_filters(filters)]

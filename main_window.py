@@ -1,4 +1,5 @@
 import sys
+import os
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMessageBox, QListWidgetItem
@@ -28,7 +29,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         central = QtWidgets.QWidget()
         central.setStyleSheet("""
-            QWidget { background-color: #F8F9FC; color: #334155; font-family: 'Segoe UI', sans-serif; font-size: 14px; }
+            QWidget { background-color: #F8F9FC; color: #334155; font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, 'Roboto', 'Ubuntu', 'Cantarell', 'Noto Sans', 'DejaVu Sans', sans-serif; font-size: 14px; }
             QScrollBar:vertical { background: #F1F5F9; width: 10px; margin: 0; border-radius: 5px; }
             QScrollBar::handle:vertical { background: #CBD5E1; min-height: 30px; border-radius: 5px; }
         """)
@@ -251,6 +252,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.add_content.setStyleSheet(self.text_edit_style())
         layout.addWidget(self.add_content)
         
+        btn_import = self.create_button("Импорт из файла", self.import_text_from_file, "secondary")
+        layout.addWidget(btn_import)
+        
         btn_save = self.create_button("Сохранить", self.save_new_doc)
         layout.addWidget(btn_save)
         return page
@@ -435,6 +439,32 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось создать документ: {str(e)}")
 
+    def import_text_from_file(self):
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Выберите текстовый файл",
+            "",
+            "Текстовые файлы (*.txt)"
+        )
+        if not path:
+            return
+        try:
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except UnicodeDecodeError:
+                with open(path, 'r', encoding='cp1251') as f:
+                    content = f.read()
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось прочитать файл: {str(e)}")
+            return
+        self.add_content.setPlainText(content)
+        if not self.add_title.text().strip():
+            base = os.path.basename(path)
+            if base.lower().endswith(".txt"):
+                base = base[:-4]
+            self.add_title.setText(base)
+
     def repeat_search(self, item):
         self.search_input.setText(item.text())
         self.do_search()
@@ -482,7 +512,7 @@ if __name__ == "__main__":
     app.setStyleSheet("""
         /* Базовые настройки шрифта и фона для всех окон */
         QWidget {
-            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, 'Roboto', 'Ubuntu', 'Cantarell', 'Noto Sans', 'DejaVu Sans', sans-serif;
             font-size: 14px;
         }
         
