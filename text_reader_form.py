@@ -190,8 +190,9 @@ class TextReaderForm(QtWidgets.QWidget):
         if not self.keywords_label:
             return
         try:
-            from backend.core.indexer import extract_keywords_surface
-            kws = extract_keywords_surface(text or "", top_n=10)
+            from backend.core.index import Index
+            index = Index()
+            kws = index.extract_keywords(text or "", top_n=10)
             self.keywords_label.setText(", ".join(kws) if kws else "—")
         except Exception:
             self.keywords_label.setText("—")
